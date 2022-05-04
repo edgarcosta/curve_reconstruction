@@ -198,73 +198,9 @@ function ReconstructCurveGeometricG2(tau, K : Base := false)
 /* Alternative: implement variant of BILV */
 /* TODO: Add check of not being product of elliptic curves */
 
-CC := BaseRing(tau);
-P := HorizontalJoin(tau, IdentityMatrix(CC, 2));
-
-/* Reduce small period matrix */
-taunew, gamma := ReduceSmallPeriodMatrix(tau);
-Imtaunew := Matrix([ [ Im(c) : c in Eltseq(row) ] : row in Rows(taunew) ]);
-
-vprint CurveRec, 2 : "";
-vprint CurveRec, 2 : "Eigenvalues of imaginary part of reduced tau:";
-vprint CurveRec, 2 : [ ComplexField(5) ! tup[1] : tup in Eigenvalues(Imtaunew) ];
-
-/* Calculate corresponding big period matrix */
-A := Submatrix(gamma, 1,1, 2,2);
-B := Submatrix(gamma, 1,3, 2,2);
-C := Submatrix(gamma, 3,1, 2,2);
-D := Submatrix(gamma, 3,3, 2,2);
-Pnew := P * Transpose(BlockMatrix([[A, B], [C, D]]));
-P1new := Submatrix(Pnew, 1,1, 2,2);
-P2new := Submatrix(Pnew, 1,3, 2,2);
-P2inew := P2new^(-1);
-
-/* Calculation of theta derivatives at odd two-torsion points */
-w1 := (1/2)*taunew*Transpose(Matrix(CC, [[0,1]])) + (1/2)*Transpose(Matrix(CC, [[0,1]]));
-w2 := (1/2)*taunew*Transpose(Matrix(CC, [[0,1]])) + (1/2)*Transpose(Matrix(CC, [[1,1]]));
-w3 := (1/2)*taunew*Transpose(Matrix(CC, [[1,0]])) + (1/2)*Transpose(Matrix(CC, [[1,0]]));
-w4 := (1/2)*taunew*Transpose(Matrix(CC, [[1,0]])) + (1/2)*Transpose(Matrix(CC, [[1,1]]));
-w5 := (1/2)*taunew*Transpose(Matrix(CC, [[1,1]])) + (1/2)*Transpose(Matrix(CC, [[0,1]]));
-w6 := (1/2)*taunew*Transpose(Matrix(CC, [[1,1]])) + (1/2)*Transpose(Matrix(CC, [[1,0]]));
-ws := [ w1, w2, w3, w4, w5, w6 ];
-
-vprint CurveRec : "";
-vprint CurveRec : "Calculating theta derivatives...";
-theta_derss := [ ThetaDerivatives(taunew, w) : w in ws ];
-vprint CurveRec : "done calculating theta derivatives.";
-
-/* Determination of ratios = roots */
-Hs := [ Matrix(CC, [ theta_ders ]) * P2inew : theta_ders in theta_derss ];
-rats := [ ];
-for H in Hs do
-    seq := Eltseq(H);
-    add := true;
-    if Abs(seq[2]) lt Abs(seq[1]) then
-        if Abs(seq[2]/seq[1])^2 lt CC`epscomp then
-            add := false;
-        end if;
-    end if;
-    if add then
-        Append(~rats, -seq[1]/seq[2]);
-    end if;
-end for;
-
-/* Recover polynomial over CC up to a constant */
-RCC := PolynomialRing(CC); R := PolynomialRing(K);
-fCC := &*[ RCC.1 - rat : rat in rats ];
-
-ICC := IgusaInvariants(fCC); W := [ 2, 4, 6, 8, 10 ];
-ICC := WPSNormalizeCC(W, ICC);
-if Base then
-    test, I := AlgebraizeElementsExtra(ICC, K);
-    if not test then
-        vprint CurveRec : "";
-        vprint CurveRec : "Failed to algebraize Igusa invariants.";
-        return 0, 0, false;
-    end if;
-    L := K; hKL := CanonicalInclusionMap(K, L);
-else
-    L, I, hKL := NumberFieldExtra(ICC, K);
+I, hKL, b := AlgebraizedInvariantsG2(tau, K : Base := Base);
+if not b then
+    return 0, 0, false;
 end if;
 
 g2 := IgusaToG2Invariants(I);
@@ -288,13 +224,8 @@ return Y, hKL, true;
 end function;
 
 
-function ReconstructCurveG2(P, K : Base := false, Dom := [-5..5])
-// Reconstruct curve from period matrix P, returned over an extension of the
-// base field K.
-/* TODO: Add check of not being product of elliptic curves */
-
-/* Reduce small period matrix */
-tau := SmallPeriodMatrix(P);
+function ReconstructCurveG2CC(tau)
+// Reconstruct curve from a small period matrix P, returned over CC
 CC := BaseRing(Parent(tau));
 
 /* Reduce small period matrix */
@@ -348,6 +279,22 @@ end for;
 /* Recover polynomial over CC up to a constant */
 RCC := PolynomialRing(CC);
 fCC := &*[ RCC.1 - rat : rat in rats ];
+return fCC;
+end function;
+
+
+
+function ReconstructCurveG2(P, K : Base := false, Dom := [-5..5])
+// Reconstruct curve from period matrix P, returned over an extension of the
+// base field K.
+/* TODO: Add check of not being product of elliptic curves */
+
+/* Reduce small period matrix */
+CC := BaseRing(Parent(tau));
+tau := SmallPeriodMatrix(P);
+
+/* Recover polynomial over CC up to a constant */
+fCC := ReconstructCurveG2CC(tau);
 
 /* Finding homomorphisms to original matrix */
 vprint CurveRec : "";
@@ -431,60 +378,8 @@ end function;
 
 function AlgebraizedInvariantsG2(tau, K : Base := false)
 
-CC := BaseRing(tau);
-P := HorizontalJoin(tau, IdentityMatrix(CC, 2));
-
-/* Reduce small period matrix */
-taunew, gamma := ReduceSmallPeriodMatrix(tau);
-Imtaunew := Matrix([ [ Im(c) : c in Eltseq(row) ] : row in Rows(taunew) ]);
-
-vprint CurveRec, 2 : "";
-vprint CurveRec, 2 : "Eigenvalues of imaginary part of reduced tau:";
-vprint CurveRec, 2 : [ ComplexField(5) ! tup[1] : tup in Eigenvalues(Imtaunew) ];
-
-/* Calculate corresponding big period matrix */
-A := Submatrix(gamma, 1,1, 2,2);
-B := Submatrix(gamma, 1,3, 2,2);
-C := Submatrix(gamma, 3,1, 2,2);
-D := Submatrix(gamma, 3,3, 2,2);
-Pnew := P * Transpose(BlockMatrix([[A, B], [C, D]]));
-P1new := Submatrix(Pnew, 1,1, 2,2);
-P2new := Submatrix(Pnew, 1,3, 2,2);
-P2inew := P2new^(-1);
-
-/* Calculation of theta derivatives at odd two-torsion points */
-w1 := (1/2)*taunew*Transpose(Matrix(CC, [[0,1]])) + (1/2)*Transpose(Matrix(CC, [[0,1]]));
-w2 := (1/2)*taunew*Transpose(Matrix(CC, [[0,1]])) + (1/2)*Transpose(Matrix(CC, [[1,1]]));
-w3 := (1/2)*taunew*Transpose(Matrix(CC, [[1,0]])) + (1/2)*Transpose(Matrix(CC, [[1,0]]));
-w4 := (1/2)*taunew*Transpose(Matrix(CC, [[1,0]])) + (1/2)*Transpose(Matrix(CC, [[1,1]]));
-w5 := (1/2)*taunew*Transpose(Matrix(CC, [[1,1]])) + (1/2)*Transpose(Matrix(CC, [[0,1]]));
-w6 := (1/2)*taunew*Transpose(Matrix(CC, [[1,1]])) + (1/2)*Transpose(Matrix(CC, [[1,0]]));
-ws := [ w1, w2, w3, w4, w5, w6 ];
-
-vprint CurveRec : "";
-vprint CurveRec : "Calculating theta derivatives...";
-theta_derss := [ ThetaDerivatives(taunew, w) : w in ws ];
-vprint CurveRec : "done calculating theta derivatives.";
-
-/* Determination of ratios = roots */
-Hs := [ Matrix(CC, [ theta_ders ]) * P2inew : theta_ders in theta_derss ];
-rats := [ ];
-for H in Hs do
-    seq := Eltseq(H);
-    add := true;
-    if Abs(seq[2]) lt Abs(seq[1]) then
-        if Abs(seq[2]/seq[1])^2 lt CC`epscomp then
-            add := false;
-        end if;
-    end if;
-    if add then
-        Append(~rats, -seq[1]/seq[2]);
-    end if;
-end for;
-
 /* Recover polynomial over CC up to a constant */
-RCC := PolynomialRing(CC); R := PolynomialRing(K);
-fCC := &*[ RCC.1 - rat : rat in rats ];
+fCC := ReconstructCurveG2CC(tau);
 
 ICC := IgusaInvariants(fCC); W := [ 2, 4, 6, 8, 10 ];
 ICC := WPSNormalizeCC(W, ICC);
@@ -495,9 +390,9 @@ if Base then
         vprint CurveRec : "Failed to algebraize Igusa invariants.";
         return 0, 0, false;
     end if;
-    L := K; hKL := CanonicalInclusionMap(K, L);
+    hKL := CanonicalInclusionMap(K, L);
 else
-    L, I, hKL := NumberFieldExtra(ICC, K);
+    I, hKL := NumberFieldExtra(ICC, K);
 end if;
 return I, hKL, true;
 
