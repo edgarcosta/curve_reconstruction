@@ -220,7 +220,6 @@ if Type(BaseRing(Y)) eq FldRat then
     end if;
 end if;
 return Y, hKL, true;
-
 end function;
 
 
@@ -395,7 +394,6 @@ else
     I, hKL := NumberFieldExtra(ICC, K);
 end if;
 return I, hKL, true;
-
 end function;
 
 
