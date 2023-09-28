@@ -31,6 +31,9 @@ for i in [1..#Rows(M)] do
         end if;
     end for;
 end for;
+if Abs(Determinant(M)) lt 10^(-prec) or not IsSymmetricImproved(M) then
+    return false;
+end if;
 return IsPositiveDefinite(ChangeRing(M, RRSmall));
 end function;
 
