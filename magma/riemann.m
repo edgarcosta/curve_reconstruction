@@ -51,16 +51,3 @@ ICC, W := DixmierOhnoInvariants(RiemannModelFromModuli(modsCC));
 return WPSNormalizeCC(W, ICC);
 end intrinsic;
 
-
-intrinsic DixmierOhnoInvariants(X::Crv) -> .
-{Returns the Dixmier--Ohno invariants of the curve X.}
-
-if not Type(X) eq CrvPln then
-    error "Input must be a plane curve";
-end if;
-if not Degree(DefiningPolynomial(X)) eq 4 then
-    error "Input must be a quartic curve";
-end if;
-return DixmierOhnoInvariants(DefiningPolynomial(X));
-
-end intrinsic;
